@@ -70,6 +70,7 @@ export function WorkspaceShell({
       const r = await fetch("/api/auth/logout", { method: "POST" });
       if (!r.ok) throw Error("Could not sign out");
       query.clear();
+      setSidebarOpen(false);
       router.push("/login");
       router.refresh();
     } catch (e) {
