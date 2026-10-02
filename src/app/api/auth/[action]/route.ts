@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { backend } from "@/lib/server";
+import { restoreSession, cookieOptions } from "@/lib/session";
 import { roleHome, type Role, type User } from "@/lib/types";
 
 export async function POST(
@@ -13,11 +14,22 @@ export async function POST(
       { status: 403 },
     );
   const { action } = await context.params;
-  if (!["login", "register", "demo", "logout"].includes(action))
+  if (!["login", "register", "demo", "logout", "refresh"].includes(action))
     return NextResponse.json({ message: "Not found" }, { status: 404 });
   const jar = await cookies();
   try {
+    if (action === "refresh") {
+      const success = await restoreSession();
+      return NextResponse.json(
+        { success },
+        {
+          status: success ? 200 : 401,
+          headers: { "Cache-Control": "no-store" },
+        },
+      );
+    }
     if (action === "logout") {
+      await restoreSession().catch(() => false);
       const access = jar.get("cc_access")?.value;
       const refreshToken = jar.get("cc_refresh")?.value;
       if (access && refreshToken)
@@ -37,7 +49,7 @@ export async function POST(
     let body = await request.json();
     if (action === "demo") {
       const role = String(body.role) as Role;
-      if (!(role in roleHome))
+      if (!Object.hasOwn(roleHome, role))
         return NextResponse.json({ message: "Invalid role" }, { status: 400 });
       const email = process.env[`DEMO_${role}_EMAIL`];
       const password = process.env[`DEMO_${role}_PASSWORD`];
@@ -68,12 +80,7 @@ export async function POST(
       refreshToken: string;
       user: User;
     };
-    const options = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax" as const,
-      path: "/",
-    };
+    const options = cookieOptions;
     jar.set("cc_access", accessToken, { ...options, maxAge: 86400 });
     jar.set("cc_refresh", refreshToken, { ...options, maxAge: 7 * 86400 });
     return NextResponse.json({ success: true, redirect: roleHome[user.role] });
