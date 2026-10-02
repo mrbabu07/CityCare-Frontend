@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 export function proxy(request: NextRequest) {
-  if (!request.cookies.has("cc_access"))
+  if (!request.cookies.has("cc_access") && !request.cookies.has("cc_refresh"))
     return NextResponse.redirect(new URL("/login", request.url));
   return NextResponse.next();
 }
