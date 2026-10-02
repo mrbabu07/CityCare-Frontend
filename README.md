@@ -38,11 +38,11 @@ The development server has been checked with desktop/mobile browser views and th
 ## Remaining assignment work
 
 - Add Google sign-in to the frontend and verify it against the configured OAuth client.
-- Add automatic refresh-token rotation; currently expired access tokens require signing in again.
+- Automatic session restoration and refresh-token rotation are implemented. Run `node tests/auth.integration.mjs` for isolated auth-route regression checks. Verify multi-tab refresh in the deployed browser environment as well.
 - Restore active SSLCommerz sandbox credentials. The last backend checkout test returned `Store Credential Error Or Store is De-active`.
 - Coordinate backend payment callbacks with frontend success/cancel pages. Current callbacks return backend JSON, so the full frontend payment return journey is not complete.
 - Finish comprehensive end-to-end tests for all roles, attachments, payment outcomes, and responsive form states.
-- Create/publish the frontend remote repository, deploy to Vercel with server environment variables, and verify the production URL.
+- Deploy the published frontend repository to Vercel with server environment variables and verify the production URL.
 - Continue meaningful development commits toward the assignment's 20-commit requirement. No artificial commits are created to inflate the count.
 - Record the walkthrough video and complete the submission template.
 
