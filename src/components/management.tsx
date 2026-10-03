@@ -10,7 +10,14 @@ import { Plus, Pencil, Trash2, X, Save } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Department, Category, User, Role } from "@/lib/types";
 import { date, label } from "@/lib/types";
-import { PageHeading, Field, Empty, Skeleton, Badge } from "./ui";
+import { PageHeading, Field, Empty, Skeleton, Badge, QueryError } from "./ui";
+import {
+  ListFilters,
+  Pagination,
+  useListState,
+  useCanonicalPage,
+} from "./list-controls";
+import { pageItems } from "@/lib/list-state";
 const resourceSchema = z.object({
   name: z.string().min(2, "Use at least 2 characters"),
   description: z.string().optional(),
@@ -18,6 +25,7 @@ const resourceSchema = z.object({
   slaHours: z.string().regex(/^[1-9]\d*$/, "Use a positive number of hours"),
 });
 export function Management({ kind }: { kind: "departments" | "categories" }) {
+  const state = useListState();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const cache = useQueryClient();
@@ -66,6 +74,13 @@ export function Management({ kind }: { kind: "departments" | "categories" }) {
       toast.success("Archived successfully");
     },
   });
+  const filtered = (list.data || []).filter((x) =>
+    `${x.name} ${x.description || ""}`
+      .toLowerCase()
+      .includes(state.search.toLowerCase()),
+  );
+  const page = pageItems(filtered, state.page);
+  useCanonicalPage(list.isSuccess ? page.totalPages : undefined);
   return (
     <>
       <PageHeading
@@ -94,14 +109,23 @@ export function Management({ kind }: { kind: "departments" | "categories" }) {
           Add {kind === "departments" ? "department" : "category"}
         </button>
       </PageHeading>
+      <ListFilters />
       {list.isPending ? (
         <Skeleton />
       ) : list.isError ? (
-        <Empty text={list.error.message} />
-      ) : !list.data.length ? (
+        <QueryError
+          message={list.error.message}
+          retry={() => list.refetch()}
+          busy={list.isFetching}
+        />
+      ) : !filtered.length ? (
         <Empty
-          title={`No ${kind} yet`}
-          text="Create your first entry to get started."
+          title={`No ${kind} found`}
+          text={
+            state.search
+              ? "No entries match your search."
+              : "Create your first entry to get started."
+          }
         />
       ) : (
         <div className="table-scroll">
@@ -116,7 +140,7 @@ export function Management({ kind }: { kind: "departments" | "categories" }) {
               </tr>
             </thead>
             <tbody>
-              {list.data.map((x) => (
+              {page.items.map((x) => (
                 <tr key={x.id}>
                   <td>
                     <strong>{x.name}</strong>
@@ -165,6 +189,12 @@ export function Management({ kind }: { kind: "departments" | "categories" }) {
           </table>
         </div>
       )}
+      {list.isSuccess && (
+        <Pagination
+          {...page}
+          onPage={(value) => state.update({ page: String(value) })}
+        />
+      )}
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="modal-overlay" />
@@ -205,7 +235,7 @@ export function Management({ kind }: { kind: "departments" | "categories" }) {
                     error={form.formState.errors.departmentId?.message}
                   >
                     <select
-                      disabled={!!editing}
+                      disabled={!!editing || deps.isPending || deps.isError}
                       {...form.register("departmentId")}
                     >
                       <option value="">Choose department</option>
@@ -216,6 +246,13 @@ export function Management({ kind }: { kind: "departments" | "categories" }) {
                       ))}
                     </select>
                   </Field>
+                  {deps.isError && (
+                    <QueryError
+                      message={deps.error.message}
+                      retry={() => deps.refetch()}
+                      busy={deps.isFetching}
+                    />
+                  )}
                   <Field
                     label="Service target (hours)"
                     error={form.formState.errors.slaHours?.message}
@@ -232,7 +269,13 @@ export function Management({ kind }: { kind: "departments" | "categories" }) {
                   <textarea rows={3} {...form.register("description")} />
                 </Field>
               )}
-              <button className="button primary" disabled={save.isPending}>
+              <button
+                className="button primary"
+                disabled={
+                  save.isPending ||
+                  (kind === "categories" && !editing && !deps.data?.length)
+                }
+              >
                 <Save size={16} />
                 Save
               </button>
@@ -290,10 +333,20 @@ function RoleForm({ user }: { user: User }) {
   );
 }
 export function People() {
+  const state = useListState();
   const list = useQuery({
     queryKey: ["users"],
     queryFn: () => api<User[]>("users"),
   });
+  const filtered = (list.data || []).filter(
+    (user) =>
+      (!state.role || user.role === state.role) &&
+      `${user.name} ${user.email}`
+        .toLowerCase()
+        .includes(state.search.toLowerCase()),
+  );
+  const page = pageItems(filtered, state.page);
+  useCanonicalPage(list.isSuccess ? page.totalPages : undefined);
   return (
     <>
       <PageHeading
@@ -301,10 +354,20 @@ export function People() {
         title="People"
         description="Citizens, service staff, and city administrators."
       />
+      <ListFilters roles />
       {list.isPending ? (
         <Skeleton />
       ) : list.isError ? (
-        <Empty text={list.error.message} />
+        <QueryError
+          message={list.error.message}
+          retry={() => list.refetch()}
+          busy={list.isFetching}
+        />
+      ) : !filtered.length ? (
+        <Empty
+          title="No people found"
+          text="No accounts match the selected filters."
+        />
       ) : (
         <div className="table-scroll">
           <table>
@@ -318,7 +381,7 @@ export function People() {
               </tr>
             </thead>
             <tbody>
-              {list.data.map((u) => (
+              {page.items.map((u) => (
                 <tr key={u.id}>
                   <td>
                     <strong>{u.name}</strong>
@@ -336,6 +399,12 @@ export function People() {
             </tbody>
           </table>
         </div>
+      )}
+      {list.isSuccess && (
+        <Pagination
+          {...page}
+          onPage={(value) => state.update({ page: String(value) })}
+        />
       )}
     </>
   );
