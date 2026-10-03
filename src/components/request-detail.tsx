@@ -23,7 +23,7 @@ import {
   date,
   label,
 } from "@/lib/types";
-import { Badge, Empty, Field, PageHeading, Skeleton } from "./ui";
+import { Badge, Field, PageHeading, Skeleton, QueryError } from "./ui";
 import { useUser } from "./workspace-shell";
 const transitions: Record<Status, Status[]> = {
   SUBMITTED: ["UNDER_REVIEW", "REJECTED"],
@@ -166,7 +166,13 @@ export function RequestDetail({ id }: { id: string }) {
   }
   if (detail.isPending) return <Skeleton />;
   if (detail.isError)
-    return <Empty title="Request unavailable" text={detail.error.message} />;
+    return (
+      <QueryError
+        message={detail.error.message}
+        retry={() => detail.refetch()}
+        busy={detail.isFetching}
+      />
+    );
   const c = detail.data;
   return (
     <>
@@ -336,6 +342,13 @@ export function RequestDetail({ id }: { id: string }) {
                 )}
               >
                 <h2>Assign a team member</h2>
+                {staff.isError && (
+                  <QueryError
+                    message={staff.error.message}
+                    retry={() => staff.refetch()}
+                    busy={staff.isFetching}
+                  />
+                )}
                 <Field
                   label="Staff"
                   error={assignForm.formState.errors.staffId?.message}
@@ -360,6 +373,13 @@ export function RequestDetail({ id }: { id: string }) {
             <section className="action-panel">
               <CreditCard size={25} />
               <h2>Priority service</h2>
+              {pay.isError && (
+                <QueryError
+                  message={pay.error.message}
+                  retry={() => pay.refetch()}
+                  busy={pay.isFetching}
+                />
+              )}
               <p className="muted">Upgrade this request to urgent priority.</p>
               <p className="payment-price">
                 BDT 100 <small>one-time</small>
@@ -368,7 +388,7 @@ export function RequestDetail({ id }: { id: string }) {
                 <Badge value="PAID" />
               ) : (
                 <button
-                  disabled={checkout.isPending}
+                  disabled={checkout.isPending || pay.isPending || pay.isError}
                   className="button primary wide"
                   onClick={() => checkout.mutate()}
                 >

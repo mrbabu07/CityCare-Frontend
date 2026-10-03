@@ -23,7 +23,9 @@ import {
   roleHome,
   statuses,
 } from "@/lib/types";
-import { Badge, Empty, PageHeading, Skeleton } from "./ui";
+import { Badge, Empty, PageHeading, Skeleton, QueryError } from "./ui";
+import { pageNumber } from "@/lib/list-state";
+import { useCanonicalPage } from "./list-controls";
 import { useUser } from "./workspace-shell";
 export function RequestTable({ items }: { items: Complaint[] }) {
   const user = useUser();
@@ -95,9 +97,10 @@ export function RequestList() {
   const params = useSearchParams();
   const path = usePathname();
   const router = useRouter();
-  const page = Math.max(1, Number(params.get("page")) || 1);
+  const page = pageNumber(params.get("page"));
   const search = params.get("search") || "";
-  const status = params.get("status") || "";
+  const rawStatus = params.get("status") || "";
+  const status = statuses.find((value) => value === rawStatus) || "";
   const query = new URLSearchParams({
     page: String(page),
     limit: "10",
@@ -119,6 +122,7 @@ export function RequestList() {
     );
     router.push(`${path}?${next}`);
   }
+  useCanonicalPage(result.data?.pagination.totalPages);
   return (
     <>
       <PageHeading
@@ -143,6 +147,7 @@ export function RequestList() {
             <input
               aria-label="Search requests"
               placeholder="Search requests..."
+              maxLength={100}
               {...register("search")}
             />
           </div>
@@ -171,7 +176,11 @@ export function RequestList() {
         {result.isPending ? (
           <Skeleton />
         ) : result.isError ? (
-          <Empty title="Requests unavailable" text={result.error.message} />
+          <QueryError
+            message={result.error.message}
+            retry={() => result.refetch()}
+            busy={result.isFetching}
+          />
         ) : result.data.complaints.length ? (
           <RequestTable items={result.data.complaints} />
         ) : (
@@ -188,7 +197,7 @@ export function RequestList() {
               className="icon-button"
               title="Previous page"
               aria-label="Previous page"
-              disabled={page <= 1}
+              disabled={page <= 1 || result.isFetching}
               onClick={() => update({ page: String(page - 1) })}
             >
               <ChevronLeft size={18} />
@@ -202,7 +211,9 @@ export function RequestList() {
               title="Next page"
               aria-label="Next page"
               disabled={
-                !result.data || page >= result.data.pagination.totalPages
+                result.isFetching ||
+                !result.data ||
+                page >= result.data.pagination.totalPages
               }
               onClick={() => update({ page: String(page + 1) })}
             >

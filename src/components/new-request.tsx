@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { ArrowRight, ArrowLeft, Send, MapPin } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Category, Complaint } from "@/lib/types";
-import { Field, PageHeading } from "./ui";
+import { Field, PageHeading, QueryError, Empty } from "./ui";
 const schema = z.object({
   title: z.string().min(5, "Use at least 5 characters"),
   description: z
@@ -55,6 +55,19 @@ export function NewRequest() {
         description="Tell us what needs attention. We'll take it from here."
       />
       <div className="wizard">
+        {categories.isError && (
+          <QueryError
+            message={categories.error.message}
+            retry={() => categories.refetch()}
+            busy={categories.isFetching}
+          />
+        )}
+        {categories.isSuccess && !categories.data.length && (
+          <Empty
+            title="No services available"
+            text="Please check back when a service category has been added."
+          />
+        )}
         <div className="steps">
           {["The issue", "Location", "Review"].map((s, i) => (
             <span className={step >= i + 1 ? "active" : ""} key={s}>
@@ -71,7 +84,14 @@ export function NewRequest() {
             <>
               <h2>What needs attention?</h2>
               <Field label="Category" error={errors.categoryId?.message}>
-                <select {...register("categoryId")}>
+                <select
+                  disabled={
+                    categories.isPending ||
+                    categories.isError ||
+                    !categories.data?.length
+                  }
+                  {...register("categoryId")}
+                >
                   <option value="">
                     {categories.isPending
                       ? "Loading categories..."
