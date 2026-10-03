@@ -5,7 +5,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
 import type { ComplaintList, Complaint, Payment } from "@/lib/types";
-import { PageHeading, Empty, Skeleton, Badge } from "./ui";
+import { PageHeading, Empty, Skeleton, Badge, QueryError } from "./ui";
+import { pageNumber } from "@/lib/list-state";
+import { useCanonicalPage } from "./list-controls";
 function PaymentRow({ complaint }: { complaint: Complaint }) {
   const q = useQuery({
     queryKey: ["payment", complaint.id],
@@ -42,11 +44,20 @@ function PaymentRow({ complaint }: { complaint: Complaint }) {
           <Badge value={q.data.status} />
         ) : (
           <span className="muted">
-            {q.isPending ? "Checking..." : "Not paid"}
+            {q.isPending ? "Checking..." : q.isError ? "Unknown" : "Not paid"}
           </span>
         )}
       </td>
       <td>
+        {q.isError && (
+          <button
+            className="text-link"
+            disabled={q.isFetching}
+            onClick={() => q.refetch()}
+          >
+            Retry
+          </button>
+        )}
         <Link
           className="text-link"
           href={`/dashboard/requests/${complaint.id}`}
@@ -60,11 +71,12 @@ function PaymentRow({ complaint }: { complaint: Complaint }) {
 export function Payments() {
   const search = useSearchParams();
   const router = useRouter();
-  const page = Math.max(1, Number(search.get("page")) || 1);
+  const page = pageNumber(search.get("page"));
   const q = useQuery({
     queryKey: ["complaints", "payments", page],
     queryFn: () => api<ComplaintList>(`complaints?limit=10&page=${page}`),
   });
+  useCanonicalPage(q.data?.pagination.totalPages);
   return (
     <>
       <PageHeading
@@ -75,7 +87,11 @@ export function Payments() {
       {q.isPending ? (
         <Skeleton />
       ) : q.isError ? (
-        <Empty text={q.error.message} />
+        <QueryError
+          message={q.error.message}
+          retry={() => q.refetch()}
+          busy={q.isFetching}
+        />
       ) : !q.data.complaints.length ? (
         <Empty
           title="No requests yet"
@@ -124,6 +140,14 @@ export function Payments() {
             </div>
           </div>
         </>
+      )}
+      {!q.isPending && !q.isError && !q.data.complaints.length && page > 1 && (
+        <button
+          className="button secondary"
+          onClick={() => router.push("?page=1")}
+        >
+          Back to first page
+        </button>
       )}
     </>
   );

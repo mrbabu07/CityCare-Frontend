@@ -4,11 +4,13 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
 import { type Audit, type PageInfo, date, label } from "@/lib/types";
-import { PageHeading, Skeleton, Empty } from "./ui";
+import { PageHeading, Skeleton, Empty, QueryError } from "./ui";
+import { pageNumber } from "@/lib/list-state";
+import { useCanonicalPage } from "./list-controls";
 export function Reports() {
   const params = useSearchParams();
   const router = useRouter();
-  const page = Math.max(1, Number(params.get("page")) || 1);
+  const page = pageNumber(params.get("page"));
   const q = useQuery({
     queryKey: ["audit", page],
     queryFn: () =>
@@ -16,6 +18,7 @@ export function Reports() {
         `admin/audit-logs?page=${page}&limit=15`,
       ),
   });
+  useCanonicalPage(q.data?.pagination.totalPages);
   return (
     <>
       <PageHeading
@@ -26,7 +29,11 @@ export function Reports() {
       {q.isPending ? (
         <Skeleton />
       ) : q.isError ? (
-        <Empty text={q.error.message} />
+        <QueryError
+          message={q.error.message}
+          retry={() => q.refetch()}
+          busy={q.isFetching}
+        />
       ) : !q.data.logs.length ? (
         <Empty
           title="No activity yet"
@@ -84,6 +91,14 @@ export function Reports() {
             </div>
           </div>
         </>
+      )}
+      {!q.isPending && !q.isError && !q.data.logs.length && page > 1 && (
+        <button
+          className="button secondary"
+          onClick={() => router.push("?page=1")}
+        >
+          Back to first page
+        </button>
       )}
     </>
   );
