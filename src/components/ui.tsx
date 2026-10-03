@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, Inbox, ArrowUpRight } from "lucide-react";
+import { Building2, Inbox, ArrowUpRight, RotateCw } from "lucide-react";
 import { label } from "@/lib/types";
 export function Brand() {
   return (
@@ -62,7 +62,12 @@ export function Empty({
 }
 export function Skeleton() {
   return (
-    <div className="skeleton-page" aria-label="Loading">
+    <div
+      className="skeleton-page"
+      role="status"
+      aria-label="Loading"
+      aria-busy="true"
+    >
       <div className="skeleton heading" />
       <div className="stat-grid">
         {[1, 2, 3, 4].map((i) => (
@@ -72,6 +77,31 @@ export function Skeleton() {
       {[1, 2, 3, 4].map((i) => (
         <div key={i} className="skeleton row" />
       ))}
+    </div>
+  );
+}
+export function QueryError({
+  message,
+  retry,
+  busy = false,
+}: {
+  message: string;
+  retry: () => void;
+  busy?: boolean;
+}) {
+  return (
+    <div className="empty" role="alert">
+      <h3>Unable to load data</h3>
+      <p>{message}</p>
+      <button
+        type="button"
+        className="button secondary"
+        disabled={busy}
+        onClick={retry}
+      >
+        <RotateCw size={16} />
+        {busy ? "Retrying..." : "Try again"}
+      </button>
     </div>
   );
 }
