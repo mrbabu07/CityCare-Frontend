@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { type ComplaintList, type Stats, roleHome, label } from "@/lib/types";
-import { PageHeading, Skeleton, Empty } from "./ui";
+import { PageHeading, Skeleton, Empty, QueryError } from "./ui";
 import { useUser } from "./workspace-shell";
 import { RequestTable } from "./requests";
 const StatusChart = dynamic(() => import("./status-chart"), {
@@ -39,7 +39,17 @@ export function Overview() {
   });
   if (recent.isPending) return <Skeleton />;
   if (recent.isError)
-    return <Empty title="Workspace unavailable" text={recent.error.message} />;
+    return (
+      <QueryError
+        message={recent.error.message}
+        retry={() => recent.refetch()}
+        busy={recent.isFetching}
+      />
+    );
+  const chartPending =
+    user.role === "ADMIN" ? stats.isPending : counts.some((q) => q.isPending);
+  const chartError =
+    user.role === "ADMIN" ? stats.error : counts.find((q) => q.isError)?.error;
   const cards = [
     {
       name: "Total requests",
@@ -116,7 +126,28 @@ export function Overview() {
             </div>
             <span className="small-label">ALL TIME</span>
           </div>
-          <StatusChart data={chart} />
+          {chartPending ? (
+            <div
+              className="skeleton chart"
+              role="status"
+              aria-label="Loading chart"
+            />
+          ) : chartError ? (
+            <QueryError
+              message={chartError.message}
+              retry={() => {
+                if (user.role === "ADMIN") void stats.refetch();
+                else counts.forEach((q) => void q.refetch());
+              }}
+            />
+          ) : chart.some((item) => item.count > 0) ? (
+            <StatusChart data={chart} />
+          ) : (
+            <Empty
+              title="No activity yet"
+              text="No requests have been recorded for these statuses."
+            />
+          )}
         </section>
         <aside className="care-note">
           <span className="eyebrow">A LITTLE CARE, EVERY DAY</span>
