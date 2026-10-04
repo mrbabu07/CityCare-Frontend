@@ -24,6 +24,7 @@ import { Brand } from "./ui";
 import { useUi } from "./providers";
 import { type User, roleHome, label } from "@/lib/types";
 import { toast } from "sonner";
+import { RequestDraftProvider } from "./request-draft";
 const UserContext = createContext<User | null>(null);
 export function useUser() {
   const user = useContext(UserContext);
@@ -165,7 +166,11 @@ export function WorkspaceShell({
               CityCare home <ArrowUpRight size={15} />
             </Link>
           </header>
-          <main className="workspace-main">{children}</main>
+          <main className="workspace-main">
+            <RequestDraftProvider key={user.id}>
+              {children}
+            </RequestDraftProvider>
+          </main>
           <footer className="workspace-footer">
             <span>CityCare &middot; Every neighborhood matters.</span>
             <span>Built for the people.</span>

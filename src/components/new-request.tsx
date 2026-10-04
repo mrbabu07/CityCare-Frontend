@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRequestDraft } from "./request-draft";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,7 +22,8 @@ const schema = z.object({
 });
 type Values = z.infer<typeof schema>;
 export function NewRequest() {
-  const [step, setStep] = useState(1);
+  const { draft, setDraft } = useRequestDraft();
+  const [step, setStep] = useState(draft?.step || 1);
   const router = useRouter();
   const cache = useQueryClient();
   const {
@@ -32,8 +34,11 @@ export function NewRequest() {
     formState: { errors },
   } = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { priority: "MEDIUM" },
+    defaultValues: { priority: "MEDIUM", ...draft?.values },
   });
+  useEffect(() => {
+    setDraft({ step, values: getValues() });
+  }, [setDraft, step, getValues]);
   const categories = useQuery({
     queryKey: ["categories"],
     queryFn: () => api<Category[]>("categories"),
@@ -42,6 +47,7 @@ export function NewRequest() {
     mutationFn: (v: Values) =>
       api<Complaint>("complaints", { method: "POST", body: JSON.stringify(v) }),
     onSuccess: (c) => {
+      setDraft(null);
       cache.invalidateQueries({ queryKey: ["complaints"] });
       toast.success("Request submitted");
       router.push(`/dashboard/requests/${c.id}`);
@@ -78,7 +84,10 @@ export function NewRequest() {
         </div>
         <form
           className="form-stack"
-          onSubmit={handleSubmit((v) => create.mutate(v))}
+          onChange={() => setDraft({ step, values: getValues() })}
+          onSubmit={handleSubmit((v) => {
+            if (step === 3 && !create.isPending) create.mutate(v);
+          })}
         >
           {step === 1 && (
             <>
@@ -171,6 +180,7 @@ export function NewRequest() {
               <button
                 type="button"
                 className="button secondary"
+                disabled={create.isPending}
                 onClick={() => setStep(step - 1)}
               >
                 <ArrowLeft size={16} />
