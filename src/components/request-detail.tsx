@@ -15,6 +15,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { uploadAttachment } from "@/lib/upload";
 import {
   type Complaint,
   type User,
@@ -98,8 +99,24 @@ export function RequestDetail({ id }: { id: string }) {
       body?: unknown;
       method?: string;
     }) => api(path, { method, body: body ? JSON.stringify(body) : undefined }),
+    onMutate: async ({ path, body }) => {
+      if (path !== `complaints/${id}/status`) return;
+      await cache.cancelQueries({ queryKey: ["complaint", id] });
+      const previous = cache.getQueryData<Complaint>(["complaint", id]);
+      const next = (body as { status: Status }).status;
+      if (previous)
+        cache.setQueryData<Complaint>(["complaint", id], {
+          ...previous,
+          status: next,
+        });
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous)
+        cache.setQueryData(["complaint", id], context.previous);
+    },
+    onSettled: () => refresh(),
     onSuccess: () => {
-      refresh();
       toast.success("Changes saved");
     },
   });
@@ -133,29 +150,8 @@ export function RequestDetail({ id }: { id: string }) {
     }
     setUploading(true);
     setProgress(0);
-    const form = new FormData();
-    form.append("file", file);
     try {
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", `/api/backend/complaints/${id}/attachments`);
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable)
-            setProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        xhr.onload = () => {
-          try {
-            const b = JSON.parse(xhr.responseText);
-            if (xhr.status >= 200 && xhr.status < 300) resolve();
-            else reject(Error(b.message));
-          } catch {
-            reject(Error("Upload failed"));
-          }
-        };
-        xhr.onerror = () =>
-          reject(Error("Upload failed. Check your connection."));
-        xhr.send(form);
-      });
+      await uploadAttachment(id, file, setProgress);
       refresh();
       toast.success("Attachment added");
     } catch (e) {
@@ -256,6 +252,7 @@ export function RequestDetail({ id }: { id: string }) {
                           alt="Request evidence"
                           width={240}
                           height={160}
+                          sizes="(max-width: 600px) 100vw, 240px"
                         />
                       ) : (
                         <span>
