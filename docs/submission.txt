@@ -1,0 +1,9 @@
+Project Name            : CityCare - City Complaint & Service Request Platform
+Backend Repo            : https://github.com/mrbabu07/CityCare-Backend
+Frontend Repo           : https://github.com/mrbabu07/CityCare-Frontend
+Live Backend URL        : https://city-care-backend.vercel.app
+Live Frontend URL       : [ADD VERIFIED PRODUCTION URL]
+API Documentation       : https://github.com/mrbabu07/CityCare-Backend/blob/main/docs/openapi.yaml
+Demo Video              : [ADD PUBLICLY VIEWABLE VIDEO LINK]
+Demo Admin Email        : admin@citycare.demo
+Demo Admin Password     : [ADD DEDICATED DEMO PASSWORD ONLY IN PRIVATE SUBMISSION]
